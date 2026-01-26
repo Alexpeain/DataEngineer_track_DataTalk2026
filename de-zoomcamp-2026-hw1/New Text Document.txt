@@ -1,0 +1,32 @@
+# 1. Navigate to your main repository
+cd DataEngineer_track_DataTalk2026
+
+# 2. Go into the homework folder (NO git init!)
+cd de-zoomcamp-2026-hw1
+
+# 3. Create your homework files
+touch homework1.py
+echo "print('Hello homework 1')" > homework1.py
+
+# 4. Go BACK to the main repository folder
+cd ..
+
+# 5. Add, commit, and push from the MAIN repository
+git add de-zoomcamp-2026-hw1/
+git commit -m "Complete homework 1"
+git push origin main
+
+
+
+Homework URL 
+HW1: https://github.com/Alexpeain/DataEngineer_track_DataTalk2026/tree/main/de-zoomcamp-2026-hw1
+
+HW2: https://github.com/Alexpeain/DataEngineer_track_DataTalk2026/tree/main/de-zoomcamp-2026-hw2
+
+HW3: https://github.com/Alexpeain/DataEngineer_track_DataTalk2026/tree/main/de-zoomcamp-2026-hw3
+
+HW4: https://github.com/Alexpeain/DataEngineer_track_DataTalk2026/tree/main/de-zoomcamp-2026-hw4
+
+HW5: https://github.com/Alexpeain/DataEngineer_track_DataTalk2026/tree/main/de-zoomcamp-2026-hw5
+
+HW6: https://github.com/Alexpeain/DataEngineer_track_DataTalk2026/tree/main/de-zoomcamp-2026-hw6
