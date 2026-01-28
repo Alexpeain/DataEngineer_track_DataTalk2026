@@ -6,6 +6,7 @@ import pandas as pd
 from sqlalchemy import create_engine
 from tqdm import tqdm
 
+
 @click.command()
 @click.option('--pg-user', '-u', default='postgres', help='Postgres username')
 @click.option('--pg-password', '-p', default='root', help='Postgres password')
@@ -14,36 +15,25 @@ from tqdm import tqdm
 @click.option('--pg-db', '-d', default='ny_taxi', help='Postgres database')
 @click.option('--year', '-y', default=2021, type=int, help='Data year')
 @click.option('--month', '-m', default=1, type=int, help='Data month (1-12)')
-@click.option('--target-table', '-t', default='yellow_taxi_data', help='Target table name')
+@click.option('--target-table', '-t', default='yellow_taxi_trips', help='Target table name')
 @click.option('--chunksize', '-c', default=100000, type=int, help='CSV chunk size')
 def load_taxi_data(pg_user, pg_password, pg_host, pg_port, pg_db, year, month, target_table, chunksize):
     """Load NYC yellow taxi data to Postgres with chunking."""
-    
-    # File path
+
     filepath = f"./yellow_tripdata_{year:04d}-{month:02d}.csv.gz"
-    
-    # Create engine
-    engine = create_engine(f'postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_db}')
-    
-    # Preview data
+
+    engine = create_engine(
+        f"postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_db}"
+    )
+
     print("Previewing first 100 rows...")
-    df = pd.read_csv(filepath, nrows=100)
-    print("Data shape:", df.shape)
+    df_preview = pd.read_csv(filepath, nrows=100)
+    print("Data shape:", df_preview.shape)
     print("\nData types:")
-    print(df.dtypes)
+    print(df_preview.dtypes)
     print("\nFirst 5 rows:")
-    print(df.head())
-    
-    # Print table schema
-    print("\nTable schema:")
-    print(pd.io.sql.get_schema(df, name=target_table, con=engine))
-    
-    # Create empty table
-    print("\nCreating empty table...")
-    df.head(n=0).to_sql(name=target_table, con=engine, if_exists='replace')
-    print("Empty table created.")
-    
-    # Define dtypes and parse dates
+    print(df_preview.head())
+
     dtype = {
         "VendorID": "Int64",
         "passenger_count": "Int64",
@@ -60,40 +50,66 @@ def load_taxi_data(pg_user, pg_password, pg_host, pg_port, pg_db, year, month, t
         "tolls_amount": "float64",
         "improvement_surcharge": "float64",
         "total_amount": "float64",
-        "congestion_surcharge": "float64"
+        "congestion_surcharge": "float64",
     }
-    
+
     parse_dates = [
         "tpep_pickup_datetime",
-        "tpep_dropoff_datetime"
+        "tpep_dropoff_datetime",
     ]
-    
-    # Load in chunks
+
     print("\nStarting chunked data load...")
+
     df_iter = pd.read_csv(
-        filepath,  
+        filepath,
         dtype=dtype,
         parse_dates=parse_dates,
         iterator=True,
-        chunksize=chunksize
+        chunksize=chunksize,
     )
-    
-    # Load chunks
-    for df_chunk in tqdm(df_iter):
-        df_chunk['pickup_year'] = df_chunk['tpep_pickup_datetime'].dt.year
-        df_chunk['pickup_month'] = df_chunk['tpep_pickup_datetime'].dt.month
-        df_chunk.to_sql(
-            name=target_table, 
-            con=engine, 
-            if_exists='append',
-            index=False,
-            method='multi',
-            chunksize=500
-        )
-    
-    print("\nData loading complete!")
-    print("Verify row count and new columns:")
-    print(pd.read_sql(f"SELECT COUNT(*) as total_rows, MIN(pickup_year), MAX(pickup_year), MIN(pickup_month), MAX(pickup_month) FROM {target_table}", con=engine))
 
-if __name__ == '__main__':
+    # first chunk defines schema including pickup_year/month
+    first_chunk = next(df_iter)
+    first_chunk["pickup_year"] = first_chunk["tpep_pickup_datetime"].dt.year
+    first_chunk["pickup_month"] = first_chunk["tpep_pickup_datetime"].dt.month
+
+    print("\nTable schema:")
+    print(pd.io.sql.get_schema(first_chunk.head(0), name=target_table, con=engine))
+
+    print("\nCreating empty table...")
+    first_chunk.head(0).to_sql(
+        name=target_table,
+        con=engine,
+        if_exists="replace",
+        index=False,
+    )
+    print("Empty table created.")
+
+    # insert first chunk
+    first_chunk.to_sql(
+        name=target_table,
+        con=engine,
+        if_exists="append",
+        index=False,
+        method="multi",
+        chunksize=500,
+    )
+
+    # insert remaining chunks
+    for df_chunk in tqdm(df_iter):
+        df_chunk["pickup_year"] = df_chunk["tpep_pickup_datetime"].dt.year
+        df_chunk["pickup_month"] = df_chunk["tpep_pickup_datetime"].dt.month
+        df_chunk.to_sql(
+            name=target_table,
+            con=engine,
+            if_exists="append",
+            index=False,
+            method="multi",
+            chunksize=500,
+        )
+
+    print("\nData loading complete!")
+
+
+if __name__ == "__main__":
     load_taxi_data()
